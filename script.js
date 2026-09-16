@@ -122,61 +122,69 @@ if (achieveStats.length) {
   achieveStats.forEach(el => statsIO.observe(el));
 }
 
-// Liquid glass — brillo que sigue el cursor sobre las tarjetas
-const glassCards = document.querySelectorAll(
-  '.skill-card, .process-card, .price-card, .about-card, .achieve-card, .contact-form-card, .contact-direct-card, .cd-item, .terminal, .quality-banner'
-);
-glassCards.forEach(card => {
-  card.style.position = card.style.position || 'relative';
-  card.addEventListener('pointermove', (e) => {
-    const rect = card.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    card.style.setProperty('--mx', x + '%');
-    card.style.setProperty('--my', y + '%');
-  });
-});
+// Los efectos de cursor (brillo, magnetismo, paralaje del fondo) solo se
+// activan en dispositivos con mouse real. En touch (celular/tablet) no
+// aportan nada -pointermove no se dispara igual- y sí cuestan batería y
+// fluidez, así que se quedan completamente apagados ahí.
+const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-// Liquid glass — botones magnéticos
-const magneticEls = document.querySelectorAll('.btn, .cf-submit, .nav-cta, .logo-mark');
-magneticEls.forEach(el => {
-  el.classList.add('magnetic');
-  let raf = null;
-  el.addEventListener('pointermove', (e) => {
-    const rect = el.getBoundingClientRect();
-    const relX = e.clientX - rect.left - rect.width / 2;
-    const relY = e.clientY - rect.top - rect.height / 2;
-    const strength = 0.28;
-    if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      el.style.transform = `translate(${relX * strength}px, ${relY * strength}px)`;
+if (canHover) {
+  // Liquid glass — brillo que sigue el cursor sobre las tarjetas
+  const glassCards = document.querySelectorAll(
+    '.skill-card, .process-card, .price-card, .about-card, .achieve-card, .contact-form-card, .contact-direct-card, .cd-item, .terminal, .quality-banner'
+  );
+  glassCards.forEach(card => {
+    card.style.position = card.style.position || 'relative';
+    card.addEventListener('pointermove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      card.style.setProperty('--mx', x + '%');
+      card.style.setProperty('--my', y + '%');
     });
   });
-  el.addEventListener('pointerleave', () => {
-    if (raf) cancelAnimationFrame(raf);
-    el.style.transform = 'translate(0, 0)';
-  });
-});
 
-// Fondo liquid — los blobs reaccionan levemente al movimiento del mouse
-const meshBlobs = document.querySelectorAll('.bg-mesh span');
-if (meshBlobs.length) {
-  let mx = 0, my = 0, tx = 0, ty = 0;
-  window.addEventListener('pointermove', (e) => {
-    mx = (e.clientX / window.innerWidth - 0.5) * 2;
-    my = (e.clientY / window.innerHeight - 0.5) * 2;
-  }, { passive: true });
-  function animateMesh() {
-    tx += (mx - tx) * 0.04;
-    ty += (my - ty) * 0.04;
-    meshBlobs.forEach((blob, i) => {
-      const depth = (i + 1) * 6;
-      blob.style.marginLeft = `${tx * depth}px`;
-      blob.style.marginTop = `${ty * depth}px`;
+  // Liquid glass — botones magnéticos
+  const magneticEls = document.querySelectorAll('.btn, .cf-submit, .nav-cta, .logo-mark');
+  magneticEls.forEach(el => {
+    el.classList.add('magnetic');
+    let raf = null;
+    el.addEventListener('pointermove', (e) => {
+      const rect = el.getBoundingClientRect();
+      const relX = e.clientX - rect.left - rect.width / 2;
+      const relY = e.clientY - rect.top - rect.height / 2;
+      const strength = 0.28;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        el.style.transform = `translate(${relX * strength}px, ${relY * strength}px)`;
+      });
     });
-    requestAnimationFrame(animateMesh);
+    el.addEventListener('pointerleave', () => {
+      if (raf) cancelAnimationFrame(raf);
+      el.style.transform = 'translate(0, 0)';
+    });
+  });
+
+  // Fondo liquid — los blobs reaccionan levemente al movimiento del mouse
+  const meshBlobs = document.querySelectorAll('.bg-mesh span');
+  if (meshBlobs.length) {
+    let mx = 0, my = 0, tx = 0, ty = 0;
+    window.addEventListener('pointermove', (e) => {
+      mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      my = (e.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+    function animateMesh() {
+      tx += (mx - tx) * 0.04;
+      ty += (my - ty) * 0.04;
+      meshBlobs.forEach((blob, i) => {
+        const depth = (i + 1) * 6;
+        blob.style.marginLeft = `${tx * depth}px`;
+        blob.style.marginTop = `${ty * depth}px`;
+      });
+      requestAnimationFrame(animateMesh);
+    }
+    animateMesh();
   }
-  animateMesh();
 }
 
 // Contact form -> mailto
