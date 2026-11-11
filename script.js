@@ -1,81 +1,131 @@
-// Scroll progress bar + header elevado al hacer scroll
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
 const scrollProgress = document.getElementById('scrollProgress');
 const siteHeader = document.querySelector('header');
-function onScroll(){
-  const scrollTop = window.scrollY;
-  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-  const pct = docHeight > 0 ? scrollTop / docHeight : 0;
-  if (scrollProgress) scrollProgress.style.transform = `scaleX(${pct})`;
-  if (siteHeader) siteHeader.classList.toggle('scrolled', scrollTop > 12);
-}
-window.addEventListener('scroll', onScroll, { passive: true });
-onScroll();
-
-// Mobile menu
 const burger = document.getElementById('burger');
 const navlinks = document.getElementById('navlinks');
-burger.addEventListener('click', () => {
-  navlinks.classList.toggle('open');
+let lastY = window.scrollY;
+let ticking = false;
+
+function onScroll() {
+  const y = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? Math.min(1, y / docHeight) : 0;
+  if (scrollProgress) scrollProgress.style.transform = `scaleX(${pct})`;
+  if (siteHeader) {
+    siteHeader.classList.toggle('scrolled', y > 12);
+    // Se oculta al bajar y reaparece al subir (nunca con el menú móvil abierto)
+    const menuOpen = navlinks.classList.contains('open');
+    const goingDown = y > lastY && y > 240;
+    siteHeader.classList.toggle('hide', goingDown && !menuOpen);
+  }
+  lastY = y;
+  ticking = false;
+}
+window.addEventListener('scroll', () => {
+  if (!ticking) { requestAnimationFrame(onScroll); ticking = true; }
+}, { passive: true });
+
+/* ---------- Menú móvil ---------- */
+function setMenu(open) {
+  navlinks.classList.toggle('open', open);
+  burger.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+  burger.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
+}
+burger.setAttribute('aria-expanded', 'false');
+burger.addEventListener('click', () => setMenu(!navlinks.classList.contains('open')));
+navlinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => setMenu(false)));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+document.addEventListener('click', e => {
+  if (navlinks.classList.contains('open') && !navlinks.contains(e.target) && !burger.contains(e.target)) setMenu(false);
 });
-navlinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navlinks.classList.remove('open')));
+window.addEventListener('resize', () => { if (window.innerWidth > 920) setMenu(false); });
+onScroll();
 
-// Scroll reveal
-const revealEls = document.querySelectorAll('.reveal');
-const io = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      io.unobserve(entry.target);
-    }
+/* ---------- Enlace activo según la sección visible ---------- */
+const navAnchors = [...navlinks.querySelectorAll('a[href^="#"]:not(.nav-cta)')];
+const sections = navAnchors.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+if (sections.length && 'IntersectionObserver' in window) {
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      navAnchors.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + entry.target.id));
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  sections.forEach(s => spy.observe(s));
+}
+
+/* ---------- Reveal con escalonado automático ---------- */
+['.skills-grid', '.process-grid', '.pricing-grid', '.about-grid', '.contact-split', '.hero-grid'].forEach(sel => {
+  document.querySelectorAll(sel).forEach(group => {
+    group.querySelectorAll(':scope > .reveal').forEach((el, i) => {
+      el.style.setProperty('--d', `${i * 0.08}s`);
+    });
   });
-}, { threshold: 0.15 });
-revealEls.forEach(el => io.observe(el));
+});
+document.querySelectorAll('.section-head .reveal').forEach((el, i) => el.style.setProperty('--d', `${i * 0.08}s`));
+document.querySelectorAll('.hero .reveal').forEach(el => el.style.setProperty('--d', '.15s'));
 
-// Typewriter hero
+const revealEls = document.querySelectorAll('.reveal');
+if (prefersReduced || !('IntersectionObserver' in window)) {
+  revealEls.forEach(el => el.classList.add('visible'));
+} else {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+  revealEls.forEach(el => io.observe(el));
+}
+
+/* ---------- Máquina de escribir del hero ---------- */
 const codeLines = [
-  { text: 'const ', cls: 'kw' },{ text: 'desarrollador', cls: 'prop' },{ text: ' = {\n', cls:'' },
-  { text: '  nombre: ', cls: 'prop' },{ text: '"Alejandro Téllez"', cls: 'str' },{ text: ',\n', cls:'' },
-  { text: '  especialidad: ', cls: 'prop' },{ text: '"Desarrollo Web"', cls: 'str' },{ text: ',\n', cls:'' },
-  { text: '  experiencia: ', cls: 'prop' },{ text: '"Frontend + Backend"', cls: 'str' },{ text: ',\n', cls:'' },
-  { text: '  disponibilidad: ', cls: 'prop' },{ text: '"Disponible"', cls: 'str' },{ text: ',\n', cls:'' },
-  { text: '  café: ', cls: 'prop' },{ text: '"☕ 100%"', cls: 'str' },{ text: '\n', cls:'' },
+  { text: 'const ', cls: 'kw' }, { text: 'desarrollador', cls: 'prop' }, { text: ' = {\n', cls: '' },
+  { text: '  nombre: ', cls: 'prop' }, { text: '"Alejandro Tellez"', cls: 'str' }, { text: ',\n', cls: '' },
+  { text: '  especialidad: ', cls: 'prop' }, { text: '"Desarrollo Web"', cls: 'str' }, { text: ',\n', cls: '' },
+  { text: '  experiencia: ', cls: 'prop' }, { text: '"Frontend + Backend"', cls: 'str' }, { text: ',\n', cls: '' },
+  { text: '  disponibilidad: ', cls: 'prop' }, { text: '"Disponible"', cls: 'str' }, { text: ',\n', cls: '' },
+  { text: '  café: ', cls: 'prop' }, { text: '"☕ 100%"', cls: 'str' }, { text: '\n', cls: '' },
   { text: '};', cls: '' }
 ];
-const el = document.getElementById('typewriter');
+const typeEl = document.getElementById('typewriter');
 
-function typeEffect(){
-  el.innerHTML = '';
-  let i = 0;
+function renderCode(count, cursor) {
+  let result = '';
+  let remaining = count;
+  for (const seg of codeLines) {
+    if (remaining <= 0) break;
+    const take = Math.min(seg.text.length, remaining);
+    result += `<span class="${seg.cls}">${seg.text.slice(0, take)}</span>`;
+    remaining -= take;
+  }
+  typeEl.innerHTML = result;
+  if (cursor) typeEl.appendChild(cursor);
+}
+
+function typeEffect() {
   const cursor = document.createElement('span');
   cursor.className = 'cursor';
-
   const totalChars = codeLines.reduce((sum, seg) => sum + seg.text.length, 0);
-
-  function step(){
-    if(i <= totalChars){
-      let result = '';
-      let remaining = i;
-      for(const seg of codeLines){
-        if(remaining <= 0) break;
-        const take = Math.min(seg.text.length, remaining);
-        result += `<span class="${seg.cls}">${seg.text.slice(0, take)}</span>`;
-        remaining -= take;
-      }
-      el.innerHTML = result;
-      el.appendChild(cursor);
-      i++;
-      setTimeout(step, 14);
-    }
-  }
-  step();
+  if (prefersReduced) { renderCode(totalChars, cursor); return; }
+  let i = 0;
+  (function step() {
+    renderCode(i, cursor);
+    if (i++ < totalChars) setTimeout(step, 22);
+  })();
 }
-setTimeout(typeEffect, 500);
+if (typeEl) setTimeout(typeEffect, 600);
 
-// Frase con palabra rotativa
+/* ---------- Palabra rotativa ---------- */
 const rotateWords = ['seguro', 'moderno', 'profesional', 'confiable'];
-const rotateColors = ['#1638FF', '#0033CC', '#2451FF', '#122FA6'];
+const rotateColors = ['#253745', '#2F6B93', '#11212D', '#4A7FA3'];
 const rwEl = document.getElementById('rotateWordInner');
-if (rwEl) {
+if (rwEl && !prefersReduced) {
   let rwIndex = 0;
   setInterval(() => {
     rwEl.classList.add('rw-out');
@@ -85,115 +135,96 @@ if (rwEl) {
       rwEl.style.color = rotateColors[rwIndex];
       rwEl.classList.remove('rw-out');
       rwEl.classList.add('rw-in');
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => rwEl.classList.remove('rw-in'));
-      });
-    }, 350);
-  }, 2000);
+      requestAnimationFrame(() => requestAnimationFrame(() => rwEl.classList.remove('rw-in')));
+    }, 380);
+  }, 2400);
 }
 
-// Contador animado para las estadísticas de logros
-const achieveStats = document.querySelectorAll('.achieve-stats .num');
-if (achieveStats.length) {
-  const statsIO = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const el = entry.target;
-      const raw = el.textContent.trim();
-      const target = parseInt(raw, 10);
-      if (!isNaN(target)) {
-        let current = 0;
-        const step = Math.max(1, Math.ceil(target / 20));
-        const suffix = raw.replace(/^[0-9]+/, '');
-        const tick = () => {
-          current += step;
-          if (current >= target) {
-            el.textContent = target + suffix;
-          } else {
-            el.textContent = current + suffix;
-            requestAnimationFrame(tick);
-          }
-        };
-        tick();
-      }
-      statsIO.unobserve(el);
-    });
-  }, { threshold: 0.6 });
-  achieveStats.forEach(el => statsIO.observe(el));
-}
-
-// Los efectos de cursor (brillo, magnetismo, paralaje del fondo) solo se
-// activan en dispositivos con mouse real. En touch (celular/tablet) no
-// aportan nada -pointermove no se dispara igual- y sí cuestan batería y
-// fluidez, así que se quedan completamente apagados ahí.
-const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-if (canHover) {
-  // Liquid glass — brillo que sigue el cursor sobre las tarjetas
-  const glassCards = document.querySelectorAll(
-    '.skill-card, .process-card, .price-card, .about-card, .achieve-card, .contact-form-card, .contact-direct-card, .cd-item, .terminal, .quality-banner'
-  );
-  glassCards.forEach(card => {
-    card.style.position = card.style.position || 'relative';
+/* ---------- Efectos de mouse (solo con puntero fino) ---------- */
+if (canHover && !prefersReduced) {
+  // Brillo de vidrio que sigue al cursor
+  document.querySelectorAll('.skill-card, .process-card, .price-card, .about-card, .terminal, .quality-banner, .contact-form-card, .contact-direct-card').forEach(card => {
     card.addEventListener('pointermove', (e) => {
       const rect = card.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      card.style.setProperty('--mx', x + '%');
-      card.style.setProperty('--my', y + '%');
+      card.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width) * 100 + '%');
+      card.style.setProperty('--my', ((e.clientY - rect.top) / rect.height) * 100 + '%');
     });
   });
 
-  // Liquid glass — botones magnéticos
-  const magneticEls = document.querySelectorAll('.btn, .cf-submit, .nav-cta, .logo-mark');
-  magneticEls.forEach(el => {
+  // Botones magnéticos (suaves)
+  document.querySelectorAll('.btn, .nav-cta, .cf-submit').forEach(el => {
     el.classList.add('magnetic');
     let raf = null;
     el.addEventListener('pointermove', (e) => {
       const rect = el.getBoundingClientRect();
       const relX = e.clientX - rect.left - rect.width / 2;
       const relY = e.clientY - rect.top - rect.height / 2;
-      const strength = 0.28;
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        el.style.transform = `translate(${relX * strength}px, ${relY * strength}px)`;
+        el.style.transform = `translate(${relX * 0.14}px, ${relY * 0.2}px)`;
       });
     });
     el.addEventListener('pointerleave', () => {
       if (raf) cancelAnimationFrame(raf);
-      el.style.transform = 'translate(0, 0)';
+      el.style.transform = '';
     });
   });
 
-  // Fondo liquid — los blobs reaccionan levemente al movimiento del mouse
+  // Fondo líquido: los blobs siguen el mouse con inercia
   const meshBlobs = document.querySelectorAll('.bg-mesh span');
   if (meshBlobs.length) {
-    let mx = 0, my = 0, tx = 0, ty = 0;
+    let mx = 0, my = 0, tx = 0, ty = 0, running = false;
+    const animateMesh = () => {
+      tx += (mx - tx) * 0.05;
+      ty += (my - ty) * 0.05;
+      meshBlobs.forEach((blob, i) => {
+        const depth = (i + 1) * 6;
+        blob.style.translate = `${tx * depth}px ${ty * depth}px`;
+      });
+      if (Math.abs(mx - tx) > 0.001 || Math.abs(my - ty) > 0.001) {
+        requestAnimationFrame(animateMesh);
+      } else {
+        running = false;
+      }
+    };
     window.addEventListener('pointermove', (e) => {
       mx = (e.clientX / window.innerWidth - 0.5) * 2;
       my = (e.clientY / window.innerHeight - 0.5) * 2;
+      if (!running) { running = true; requestAnimationFrame(animateMesh); }
     }, { passive: true });
-    function animateMesh() {
-      tx += (mx - tx) * 0.04;
-      ty += (my - ty) * 0.04;
-      meshBlobs.forEach((blob, i) => {
-        const depth = (i + 1) * 6;
-        blob.style.marginLeft = `${tx * depth}px`;
-        blob.style.marginTop = `${ty * depth}px`;
-      });
-      requestAnimationFrame(animateMesh);
-    }
-    animateMesh();
   }
 }
 
-// Contact form -> mailto
-document.getElementById('contactForm').addEventListener('submit', function(e){
-  e.preventDefault();
-  const nombre = document.getElementById('nombre').value;
-  const correo = document.getElementById('correo').value;
-  const mensaje = document.getElementById('mensaje').value;
-  const subject = encodeURIComponent('Nuevo proyecto web — ' + nombre);
-  const body = encodeURIComponent(`Nombre: ${nombre}\nCorreo: ${correo}\n\nMensaje:\n${mensaje}`);
-  window.location.href = `mailto:alexitoxnv@gmail.com?subject=${subject}&body=${body}`;
-});
+/* ---------- Formulario -> WhatsApp ---------- */
+const form = document.getElementById('contactForm');
+if (form) {
+  form.querySelectorAll('input, textarea').forEach(field => {
+    field.addEventListener('input', () => field.closest('.cf-field').classList.remove('invalid'));
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const fields = ['nombre', 'asunto', 'mensaje'].map(id => document.getElementById(id));
+    let firstInvalid = null;
+    fields.forEach(f => {
+      const empty = !f.value.trim();
+      f.closest('.cf-field').classList.toggle('invalid', empty);
+      if (empty && !firstInvalid) firstInvalid = f;
+    });
+    if (firstInvalid) { firstInvalid.focus(); return; }
+
+    const [nombre, asunto, mensaje] = fields.map(f => f.value.trim());
+    const texto =
+`Hola Alejandro, te contacto desde tu página web.
+
+Nombre: ${nombre}
+Asunto: ${asunto}
+
+Mensaje:
+${mensaje}`;
+
+    const url = `https://wa.me/526246121168?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank', 'noopener');
+    form.reset();
+  });
+}
