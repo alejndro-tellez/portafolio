@@ -448,9 +448,6 @@ footer{padding:34px 0 44px; text-align:center; color:var(--ink-soft); font-size:
   .notch-badge svg{width:28px; height:28px;}
   .skill-card:hover, .process-card:hover, .price-card:hover{transform:none;}
 }
-@media (hover:none) and (pointer:coarse){
-  .skill-card, .process-card, .price-card, .about-card, .terminal, .quality-banner{transform:translateZ(0);}
-}
 @media (prefers-reduced-motion: reduce){
   *, *::before, *::after{animation:none !important; transition:none !important;}
   html{scroll-behavior:auto;}
@@ -469,4 +466,27 @@ footer{padding:34px 0 44px; text-align:center; color:var(--ink-soft); font-size:
   .btn-outline, .notch-badge{backdrop-filter:none; -webkit-backdrop-filter:none;}
   .terminal, .float-chip{animation:none;}
   .bg-mesh span:nth-child(4){display:none;}
+}
+
+@media (max-width:920px), (hover:none) and (pointer:coarse){
+  .noise{display:none;}
+  .bg-mesh span{animation:none; will-change:auto;}
+  nav.wrap::before, .about-card::before, .skill-card::before, .price-card::before, .highlight-box::before,
+  .process-card::before, .quality-banner::before, .panel::before, .contact-form-card::before,
+  .contact-direct-card::before, .float-chip::before, .terminal::before{display:none;}
+  .skill-card::after, .process-card::after, .price-card::after, .about-card::after, .quality-banner::after, .terminal::after, .contact-form-card::after, .contact-direct-card::after{display:none;}
+  .about-card, .skill-card, .price-card, .process-card, .contact-form-card, .contact-direct-card, .float-chip{border:1px solid rgba(255,255,255,.8);}
+  .skill-card.dark, .price-card.featured, .highlight-box, .quality-banner, .terminal{border:1px solid rgba(255,255,255,.22);}
+  .panel.notch{-webkit-mask:none; mask:none;}
+  .notch-badge svg{animation:none;}
+  nav.wrap{backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(244,249,253,.94);}
+  header, nav.wrap{transition:none;}
+  header{transition:transform .4s var(--ease-out);}
+  header.scrolled{padding-top:calc(14px + env(safe-area-inset-top,0px));}
+  header.scrolled nav.wrap{height:62px;}
+  .reveal{transform:translate3d(0,16px,0); transition:opacity .55s var(--ease-out), transform .55s var(--ease-out);}
+  .reveal.visible{transform:none;}
+  .skill-card, .process-card, .price-card{transition:none;}
+  #sobre-mi, #habilidades, #precios{content-visibility:auto; contain-intrinsic-size:auto 900px;}
+  .marquee{-webkit-mask:none; mask:none;}
 }
