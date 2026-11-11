@@ -8,14 +8,15 @@ const navlinks = document.getElementById('navlinks');
 let lastY = window.scrollY;
 let ticking = false;
 
+let docHeight = 0;
+function measure() { docHeight = document.documentElement.scrollHeight - window.innerHeight; }
+
 function onScroll() {
   const y = window.scrollY;
-  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
   const pct = docHeight > 0 ? Math.min(1, y / docHeight) : 0;
   if (scrollProgress) scrollProgress.style.transform = `scaleX(${pct})`;
   if (siteHeader) {
     siteHeader.classList.toggle('scrolled', y > 12);
-    // Se oculta al bajar y reaparece al subir (nunca con el menú móvil abierto)
     const menuOpen = navlinks.classList.contains('open');
     const goingDown = y > lastY && y > 240;
     siteHeader.classList.toggle('hide', goingDown && !menuOpen);
@@ -27,7 +28,6 @@ window.addEventListener('scroll', () => {
   if (!ticking) { requestAnimationFrame(onScroll); ticking = true; }
 }, { passive: true });
 
-/* ---------- Menú móvil ---------- */
 function setMenu(open) {
   navlinks.classList.toggle('open', open);
   burger.classList.toggle('open', open);
@@ -42,9 +42,12 @@ document.addEventListener('click', e => {
   if (navlinks.classList.contains('open') && !navlinks.contains(e.target) && !burger.contains(e.target)) setMenu(false);
 });
 window.addEventListener('resize', () => { if (window.innerWidth > 920) setMenu(false); });
+measure();
 onScroll();
+window.addEventListener('load', () => { measure(); onScroll(); });
+window.addEventListener('resize', measure, { passive: true });
+if ('ResizeObserver' in window) new ResizeObserver(measure).observe(document.body);
 
-/* ---------- Enlace activo según la sección visible ---------- */
 const navAnchors = [...navlinks.querySelectorAll('a[href^="#"]:not(.nav-cta)')];
 const sections = navAnchors.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
 if (sections.length && 'IntersectionObserver' in window) {
@@ -57,7 +60,6 @@ if (sections.length && 'IntersectionObserver' in window) {
   sections.forEach(s => spy.observe(s));
 }
 
-/* ---------- Reveal con escalonado automático ---------- */
 ['.skills-grid', '.process-grid', '.pricing-grid', '.about-grid', '.contact-split', '.hero-grid'].forEach(sel => {
   document.querySelectorAll(sel).forEach(group => {
     group.querySelectorAll(':scope > .reveal').forEach((el, i) => {
@@ -83,7 +85,6 @@ if (prefersReduced || !('IntersectionObserver' in window)) {
   revealEls.forEach(el => io.observe(el));
 }
 
-/* ---------- Máquina de escribir del hero ---------- */
 const codeLines = [
   { text: 'const ', cls: 'kw' }, { text: 'desarrollador', cls: 'prop' }, { text: ' = {\n', cls: '' },
   { text: '  nombre: ', cls: 'prop' }, { text: '"Alejandro Tellez"', cls: 'str' }, { text: ',\n', cls: '' },
@@ -95,33 +96,28 @@ const codeLines = [
 ];
 const typeEl = document.getElementById('typewriter');
 
-function renderCode(count, cursor) {
-  let result = '';
-  let remaining = count;
-  for (const seg of codeLines) {
-    if (remaining <= 0) break;
-    const take = Math.min(seg.text.length, remaining);
-    result += `<span class="${seg.cls}">${seg.text.slice(0, take)}</span>`;
-    remaining -= take;
-  }
-  typeEl.innerHTML = result;
-  if (cursor) typeEl.appendChild(cursor);
-}
-
 function typeEffect() {
   const cursor = document.createElement('span');
   cursor.className = 'cursor';
-  const totalChars = codeLines.reduce((sum, seg) => sum + seg.text.length, 0);
-  if (prefersReduced) { renderCode(totalChars, cursor); return; }
-  let i = 0;
+  const spans = codeLines.map(seg => {
+    const s = document.createElement('span');
+    s.className = seg.cls;
+    typeEl.appendChild(s);
+    return s;
+  });
+  typeEl.appendChild(cursor);
+  if (prefersReduced) { spans.forEach((s, i) => { s.textContent = codeLines[i].text; }); return; }
+  let seg = 0, ch = 0;
   (function step() {
-    renderCode(i, cursor);
-    if (i++ < totalChars) setTimeout(step, 22);
+    if (seg >= codeLines.length) return;
+    ch++;
+    spans[seg].textContent = codeLines[seg].text.slice(0, ch);
+    if (ch >= codeLines[seg].text.length) { seg++; ch = 0; }
+    setTimeout(step, 22);
   })();
 }
 if (typeEl) setTimeout(typeEffect, 600);
 
-/* ---------- Palabra rotativa ---------- */
 const rotateWords = ['seguro', 'moderno', 'profesional', 'confiable'];
 const rotateColors = ['#253745', '#2F6B93', '#11212D', '#4A7FA3'];
 const rwEl = document.getElementById('rotateWordInner');
@@ -140,18 +136,21 @@ if (rwEl && !prefersReduced) {
   }, 2400);
 }
 
-/* ---------- Efectos de mouse (solo con puntero fino) ---------- */
 if (canHover && !prefersReduced) {
-  // Brillo de vidrio que sigue al cursor
   document.querySelectorAll('.skill-card, .process-card, .price-card, .about-card, .terminal, .quality-banner, .contact-form-card, .contact-direct-card').forEach(card => {
-    card.addEventListener('pointermove', (e) => {
+    let raf = 0, px = 0, py = 0;
+    const paint = () => {
+      raf = 0;
       const rect = card.getBoundingClientRect();
-      card.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width) * 100 + '%');
-      card.style.setProperty('--my', ((e.clientY - rect.top) / rect.height) * 100 + '%');
+      card.style.setProperty('--mx', ((px - rect.left) / rect.width) * 100 + '%');
+      card.style.setProperty('--my', ((py - rect.top) / rect.height) * 100 + '%');
+    };
+    card.addEventListener('pointermove', (e) => {
+      px = e.clientX; py = e.clientY;
+      if (!raf) raf = requestAnimationFrame(paint);
     });
   });
 
-  // Botones magnéticos (suaves)
   document.querySelectorAll('.btn, .nav-cta, .cf-submit').forEach(el => {
     el.classList.add('magnetic');
     let raf = null;
@@ -170,7 +169,6 @@ if (canHover && !prefersReduced) {
     });
   });
 
-  // Fondo líquido: los blobs siguen el mouse con inercia
   const meshBlobs = document.querySelectorAll('.bg-mesh span');
   if (meshBlobs.length) {
     let mx = 0, my = 0, tx = 0, ty = 0, running = false;
@@ -195,7 +193,13 @@ if (canHover && !prefersReduced) {
   }
 }
 
-/* ---------- Formulario -> WhatsApp ---------- */
+const heroEl = document.querySelector('.hero');
+if (heroEl && 'IntersectionObserver' in window) {
+  new IntersectionObserver(([entry]) => {
+    document.body.classList.toggle('hero-offscreen', !entry.isIntersecting);
+  }).observe(heroEl);
+}
+
 const form = document.getElementById('contactForm');
 if (form) {
   form.querySelectorAll('input, textarea').forEach(field => {
